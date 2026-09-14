@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI, File, HTTPException, UploadFile, status
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 import app.models as models
@@ -14,6 +15,11 @@ EXTENSAO_POR_TIPO = {
 
 TAMANHO_MAXIMO_BYTES = 2 * 1024 * 1024  # 2 MB
 
+ORIGENS_PERMITIDAS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
 # Cria as tabelas que ainda não existem.
 #
 # ATENÇÃO: create_all NÃO altera tabelas já criadas. Se você mudar uma
@@ -27,6 +33,25 @@ app = FastAPI(
     description="Laboratório da Aula 06 — agora com banco de dados",
     version="2.0.0",
 )
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ORIGENS_PERMITIDAS,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+def para_resposta(evento: models.Evento) -> EventoResponse:
+    return EventoResponse(
+        id=evento.id,
+        nome=evento.nome,
+        data=evento.data,
+        local=evento.local,
+        vagas=evento.vagas,
+        cartaz_url=storage.url_com_sas(evento.cartaz_url) if evento.cartaz_url else None,
+    )
 
 
 @app.get("/")
@@ -50,7 +75,7 @@ async def health_check(db: Session = Depends(get_db)):
 @app.get("/eventos", response_model=list[EventoResponse])
 async def listar_eventos(db: Session = Depends(get_db)):
     """`db.query(...).all()` substituiu o `return eventos` da lista."""
-    return db.query(models.Evento).all()
+    return [para_resposta(evento) for evento in db.query(models.Evento).all()]
 
 
 @app.post(
@@ -75,7 +100,7 @@ async def criar_evento(evento: EventoCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(novo)
 
-    return novo
+    return para_resposta(novo)
 
 
 @app.get("/eventos/{evento_id}", response_model=EventoResponse)
@@ -93,7 +118,7 @@ async def buscar_evento(evento_id: int, db: Session = Depends(get_db)):
             detail=f"Evento {evento_id} não encontrado",
         )
 
-    return evento
+    return para_resposta(evento)
 
 
 @app.post("/eventos/{evento_id}/cartaz", response_model=EventoResponse)
@@ -136,7 +161,7 @@ async def enviar_cartaz(
     db.commit()
     db.refresh(evento)
 
-    return evento
+    return para_resposta(evento)
 
 
 @app.delete("/eventos/{evento_id}", status_code=status.HTTP_204_NO_CONTENT)
