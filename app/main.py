@@ -19,6 +19,7 @@ ORIGENS_PERMITIDAS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://ambitious-water-04533f10f.azurestaticapps.net",
+    "https://ambitious-water-04533f10f.5.azurestaticapps.net",
 ]
 
 # Cria as tabelas que ainda não existem.
